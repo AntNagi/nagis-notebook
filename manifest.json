@@ -1,0 +1,10 @@
+{
+  "name": "Nagi's Heart · Notebook",
+  "short_name": "NH Notebook",
+  "description": "Nagi's Heart 创作笔记本",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#e8c4ca",
+  "theme_color": "#e8c4ca",
+  "icons": []
+}

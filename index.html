@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#e8c4ca"/>
+<link rel="manifest" href="manifest.json"/>
+<title>Nagi's Heart · Notebook</title>
+<style>
+:root{
+  --cream:#fdf6f6;--peach:#f8dfe0;--peachD:#e8b4b6;
+  --gold:#d4879a;--goldD:#b86b7e;--goldL:#e8a8b6;
+  --rose:#c25670;--roseL:#d87a90;
+  --ink:#5a3040;--ink2:#967080;--white:#fff8f8;
+  --line:rgba(210,120,140,.35);
+  --glass:rgba(255,245,248,.65);
+  --glass2:rgba(255,240,244,.78);
+  --glassBorder:rgba(255,255,255,.55);
+  --shadow:rgba(180,80,100,.18);
+  --serif:"Baskerville","Songti SC","Times New Roman",Georgia,serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  background:#e8c4ca;color:var(--ink);display:flex;align-items:center;justify-content:center}
+
+.app{position:relative;width:100%;max-width:460px;height:100dvh;max-height:940px;
+  overflow:hidden;background:var(--cream);box-shadow:0 0 80px rgba(180,80,100,.35)}
+
+/* Shared */
+.hidden{display:none!important}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.screen{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;animation:fade .4s ease}
+.bg-layer{position:absolute;inset:0;background-size:cover;background-position:center top;background-repeat:no-repeat}
+.bg-blur{filter:blur(11px) brightness(1.04) saturate(1.05);transform:scale(1.12)}
+.veil-light{position:absolute;inset:0;background:linear-gradient(180deg,rgba(253,240,244,.35),rgba(248,220,226,.5))}
+.veil-read{position:absolute;inset:0;background:linear-gradient(180deg,rgba(253,240,244,.5),rgba(240,200,210,.55))}
+.orn{display:flex;align-items:center;gap:10px;color:var(--gold);font-size:13px;letter-spacing:.2em}
+.orn::before,.orn::after{content:"";width:40px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.btn{font-size:15px;font-weight:700;letter-spacing:.06em;color:#fff;cursor:pointer;padding:13px 36px;border:none;
+  border-radius:28px;background:linear-gradient(135deg,var(--rose),#a8405a);
+  box-shadow:0 8px 24px rgba(180,80,100,.35);transition:transform .12s}
+.btn:active{transform:scale(.96)}
+.btn.ghost{background:rgba(255,245,248,.5);backdrop-filter:blur(10px);color:var(--rose);
+  border:none;box-shadow:0 4px 14px var(--shadow)}
+.btn.sm{font-size:13px;padding:9px 20px}
+.iconbtn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;background:rgba(255,240,244,.45);backdrop-filter:blur(12px);border:none;
+  box-shadow:0 2px 10px rgba(180,80,100,.25);flex-shrink:0}
+.iconbtn svg{width:17px;height:17px;stroke:var(--rose);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.toast{position:fixed;left:50%;top:15%;transform:translateX(-50%);z-index:999;
+  background:rgba(90,48,64,.88);backdrop-filter:blur(8px);color:#fff;font-size:13px;letter-spacing:.05em;
+  padding:9px 20px;border-radius:20px;box-shadow:0 8px 22px rgba(0,0,0,.2);
+  opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* ===== List View ===== */
+#listView{z-index:10}
+#listView .header{position:relative;z-index:2;padding:22px 20px 14px;display:flex;align-items:center;gap:12px;
+  background:linear-gradient(180deg,rgba(253,246,246,.97) 60%,rgba(253,246,246,.85) 90%,transparent)}
+#listView .header h1{font-family:var(--serif);font-size:22px;color:var(--rose);letter-spacing:.08em;flex:1}
+.note-list{position:absolute;top:70px;bottom:0;left:0;right:0;overflow-y:auto;padding:10px 16px 80px;
+  scrollbar-width:none;-ms-overflow-style:none}
+.note-list::-webkit-scrollbar{display:none}
+.note-card{position:relative;border-radius:18px;padding:14px 16px;margin-bottom:12px;text-align:left;
+  border:none;background:var(--glass2);backdrop-filter:blur(12px);cursor:pointer;
+  box-shadow:0 4px 16px var(--shadow);transition:transform .12s;animation:slideUp .4s backwards}
+.note-card:hover{transform:translateY(-2px)}
+.note-card .nc-date{font-size:11px;letter-spacing:.18em;color:var(--goldD)}
+.note-card .nc-title{font-family:var(--serif);font-size:17px;color:var(--rose);margin:4px 0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-card .nc-preview{font-size:12px;color:var(--ink2);line-height:1.6;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.note-card .nc-pages{font-size:11px;color:var(--gold);margin-top:6px}
+.note-card .nc-del{position:absolute;top:50%;right:12px;transform:translateY(-50%);
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--rose);background:rgba(194,86,112,.1);border:none;cursor:pointer}
+.empty-hint{text-align:center;color:var(--ink2);font-size:14px;margin-top:60px;line-height:2}
+#addBtn{position:absolute;bottom:24px;right:24px;z-index:12;width:56px;height:56px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;
+  background:linear-gradient(135deg,var(--rose),#a8405a);color:#fff;font-size:28px;
+  box-shadow:0 8px 24px rgba(180,80,100,.4);transition:transform .12s}
+#addBtn:active{transform:scale(.9)}
+
+/* ===== Editor View ===== */
+#editorView{z-index:15;background:var(--cream)}
+.ed-header{position:relative;z-index:10;padding:12px 14px;display:flex;align-items:center;gap:10px;
+  background:rgba(253,246,246,.97);border-bottom:1px solid rgba(210,120,140,.15)}
+.ed-header .ed-title{flex:1;font-family:var(--serif);font-size:16px;color:var(--rose);
+  text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ed-body{position:absolute;top:52px;bottom:60px;left:0;right:0;overflow-y:auto;
+  scrollbar-width:none;-ms-overflow-style:none}
+.ed-body::-webkit-scrollbar{display:none}
+.ed-footer{position:absolute;bottom:0;left:0;right:0;z-index:10;padding:10px 16px;
+  display:flex;align-items:center;gap:10px;justify-content:center;
+  background:rgba(253,246,246,.97);border-top:1px solid rgba(210,120,140,.15)}
+
+/* Page card in editor */
+.page-card{position:relative;margin:16px;border-radius:20px;overflow:hidden;
+  box-shadow:0 6px 24px var(--shadow);aspect-ratio:9/16;max-height:70vh}
+.page-card .pc-bg{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
+.page-card .pc-overlay{position:absolute;inset:0}
+.page-card .pc-content{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;padding:0}
+.page-card .pc-label{position:absolute;top:10px;left:12px;z-index:5;font-size:10px;letter-spacing:.15em;
+  color:rgba(255,255,255,.6);background:rgba(0,0,0,.2);backdrop-filter:blur(6px);
+  padding:3px 10px;border-radius:12px}
+.page-card .pc-actions{position:absolute;top:10px;right:12px;z-index:5;display:flex;gap:6px}
+.page-card .pc-actions button{width:28px;height:28px;border-radius:50%;border:none;cursor:pointer;
+  background:rgba(0,0,0,.25);backdrop-filter:blur(6px);color:#fff;font-size:13px;
+  display:flex;align-items:center;justify-content:center}
+
+/* Cover page */
+.page-cover .pc-overlay{background:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.3))}
+.page-cover .pc-content{justify-content:flex-end;padding:0 28px 36px}
+.page-cover .cover-title{font-family:var(--serif);font-size:28px;font-weight:700;color:#fff;line-height:1.4;
+  text-shadow:0 2px 16px rgba(194,86,112,.55),0 0 36px rgba(255,220,230,.7),0 0 6px rgba(255,255,255,.9);
+  outline:none;border:none;background:none;width:100%;letter-spacing:.06em;
+  min-height:40px;resize:none;cursor:text;-webkit-user-select:text;user-select:text}
+.page-cover .cover-title:empty::before{content:attr(data-placeholder);color:rgba(255,255,255,.5);pointer-events:none}
+.page-cover .cover-title::placeholder{color:rgba(255,255,255,.5)}
+
+/* Type A: Highlight big text (prologue style) */
+.page-typeA .pc-overlay{background:linear-gradient(180deg,rgba(253,240,244,.72),rgba(248,220,226,.78));backdrop-filter:blur(6px)}
+.page-typeA .pc-content{justify-content:center;align-items:center;padding:40px 34px}
+.page-typeA textarea{font-family:var(--serif);font-size:21px;line-height:2.1;color:#8f2f3d;font-weight:600;
+  letter-spacing:.04em;width:100%;flex:1;
+  text-shadow:0 0 5px rgba(255,255,255,.95),0 1px 2px rgba(255,255,255,.9),0 0 16px rgba(255,244,240,.8);
+  background:none;border:none;outline:none;resize:none;-webkit-user-select:text;user-select:text}
+.page-typeA textarea::placeholder{color:rgba(143,47,61,.35)}
+
+/* Type B: Full frosted glass (narration style) */
+.page-typeB .pc-overlay{background:radial-gradient(ellipse at center,rgba(10,4,8,.55),rgba(10,4,8,.72));
+  backdrop-filter:blur(6px)}
+.page-typeB .pc-content{justify-content:center;align-items:center;padding:32px 28px}
+.page-typeB textarea{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:15px;line-height:2;color:rgba(245,230,235,.85);text-align:justify;
+  letter-spacing:.04em;width:100%;flex:1;
+  background:none;border:none;outline:none;resize:none;-webkit-user-select:text;user-select:text}
+.page-typeB textarea::placeholder{color:rgba(245,230,235,.35)}
+
+/* Type C: Bottom panel narration (dialog style) */
+.page-typeC .pc-overlay{background:linear-gradient(180deg,transparent,rgba(20,8,14,.25) 50%,rgba(20,8,14,.5))}
+.page-typeC .pc-content{justify-content:flex-end;padding:0}
+.page-typeC .panel-area{padding:28px 28px 22px;min-height:35%;
+  background:linear-gradient(180deg,transparent,rgba(20,8,14,.25) 18%,rgba(20,8,14,.45));
+  border-top:1px solid rgba(210,120,140,.3);backdrop-filter:blur(12px) saturate(1.05)}
+.page-typeC textarea{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  font-size:16px;line-height:1.9;color:#f0e0e4;letter-spacing:.03em;width:100%;min-height:80px;
+  background:none;border:none;outline:none;resize:none;-webkit-user-select:text;user-select:text}
+.page-typeC textarea::placeholder{color:rgba(240,224,228,.35)}
+
+/* End page */
+.page-end .pc-overlay{background:rgba(253,240,244,.55);backdrop-filter:blur(8px)}
+.page-end .pc-content{justify-content:center;align-items:center;padding:40px 32px;gap:16px;text-align:center}
+.page-end .end-sig{font-family:var(--serif);font-size:18px;color:var(--rose);width:80%;
+  text-align:center;background:none;border:none;border-bottom:1px solid var(--line);
+  outline:none;padding:6px 0;-webkit-user-select:text;user-select:text}
+.page-end .end-sig::placeholder{color:var(--goldL)}
+.page-end .end-date{font-size:13px;color:var(--ink2);letter-spacing:.12em;margin-top:4px}
+.page-end .end-note{font-size:13px;line-height:1.8;color:var(--ink2);width:80%;text-align:center;
+  background:none;border:none;outline:none;resize:none;margin-top:12px;
+  -webkit-user-select:text;user-select:text}
+.page-end .end-note::placeholder{color:rgba(150,112,128,.4)}
+
+/* Page type picker */
+.type-picker{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:rgba(90,48,64,.4);backdrop-filter:blur(4px);animation:fade .2s ease}
+.type-picker .tp-box{width:90%;max-width:380px;background:rgba(255,245,248,.92);backdrop-filter:blur(20px);
+  border-radius:22px;padding:24px;box-shadow:0 8px 32px var(--shadow)}
+.type-picker .tp-box h3{font-family:var(--serif);font-size:18px;color:var(--rose);margin-bottom:16px;text-align:center}
+.tp-option{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;cursor:pointer;
+  border:none;background:rgba(255,240,244,.6);margin-bottom:10px;width:100%;text-align:left;
+  box-shadow:0 2px 10px var(--shadow);transition:transform .12s}
+.tp-option:active{transform:scale(.97)}
+.tp-option .tp-icon{font-size:24px;flex-shrink:0}
+.tp-option .tp-label{font-size:14px;color:var(--ink);font-weight:600}
+.tp-option .tp-desc{font-size:11px;color:var(--ink2);margin-top:2px}
+
+/* Align buttons */
+.pc-align{position:absolute;bottom:10px;left:12px;z-index:5;display:flex;gap:4px}
+.pc-align button{width:26px;height:26px;border-radius:50%;border:none;cursor:pointer;
+  background:rgba(0,0,0,.2);backdrop-filter:blur(6px);color:rgba(255,255,255,.6);font-size:11px;
+  display:flex;align-items:center;justify-content:center;transition:background .15s}
+.pc-align button.active{background:rgba(0,0,0,.45);color:#fff}
+
+/* BG picker */
+.bg-input{display:none}
+
+/* Export loading */
+.export-overlay{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
+  background:rgba(90,48,64,.6);backdrop-filter:blur(8px);animation:fade .2s ease}
+.export-overlay .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);
+  border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.export-overlay p{color:#fff;font-size:14px;letter-spacing:.1em}
+
+/* Scrollbar hide */
+*::-webkit-scrollbar{width:0;height:0;display:none}
+*{scrollbar-width:none;-ms-overflow-style:none}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ===== List View ===== -->
+  <div class="screen" id="listView">
+    <div class="bg-layer bg-blur" style="background-image:url('cover.png')"></div>
+    <div class="veil-light"></div>
+    <div class="header">
+      <h1>Nagi's Heart · Notebook</h1>
+    </div>
+    <div class="note-list" id="noteList"></div>
+    <button id="addBtn" onclick="createNote()">+</button>
+  </div>
+
+  <!-- ===== Editor View ===== -->
+  <div class="screen hidden" id="editorView">
+    <div class="ed-header">
+      <div class="iconbtn" onclick="saveAndBack()">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </div>
+      <div class="ed-title" id="edTitle">新笔记</div>
+      <div class="iconbtn" onclick="exportNote()" title="导出图片">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      </div>
+    </div>
+    <div class="ed-body" id="edBody"></div>
+    <div class="ed-footer">
+      <button class="btn sm ghost" onclick="addPage()">+ 添加页面</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const DB_KEY = 'nagis_notebook';
+let notes = [];
+let currentNoteId = null;
+
+function loadNotes(){
+  try{ notes = JSON.parse(localStorage.getItem(DB_KEY) || '[]'); }
+  catch(e){ notes = []; }
+}
+function saveNotes(){
+  localStorage.setItem(DB_KEY, JSON.stringify(notes));
+}
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 1600);
+}
+
+// ===== List =====
+function renderList(){
+  const el = document.getElementById('noteList');
+  if(!notes.length){
+    el.innerHTML = '<div class="empty-hint">还没有笔记<br/>点击右下角 + 开始记录灵感 ♡</div>';
+    return;
+  }
+  const sorted = [...notes].sort((a,b) => b.updatedAt - a.updatedAt);
+  el.innerHTML = sorted.map((n,i) => {
+    const preview = getPreviewText(n);
+    const pageCount = n.pages ? n.pages.length : 0;
+    return `<div class="note-card" style="animation-delay:${i*0.05}s" onclick="openNote('${n.id}')">
+      <div class="nc-date">${fmtDate(n.updatedAt)}</div>
+      <div class="nc-title">${esc(n.title || '无标题')}</div>
+      <div class="nc-preview">${esc(preview)}</div>
+      <div class="nc-pages">${pageCount} 页</div>
+      <button class="nc-del" onclick="event.stopPropagation();deleteNote('${n.id}')">×</button>
+    </div>`;
+  }).join('');
+}
+function getPreviewText(note){
+  if(!note.pages) return '';
+  for(const p of note.pages){
+    if(p.type !== 'cover' && p.type !== 'end' && p.text && p.text.trim()) return p.text.trim().slice(0,80);
+  }
+  return '';
+}
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ===== CRUD =====
+function createNote(){
+  const note = {
+    id: genId(),
+    title: '',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    signature: '',
+    endNote: '',
+    pages: [
+      { id: genId(), type: 'cover', text: '', bgUrl: 'cover.png' },
+      { id: genId(), type: 'A', text: '', bgUrl: 'cover.png' },
+      { id: genId(), type: 'end', text: '', bgUrl: 'cover.png' }
+    ]
+  };
+  notes.push(note);
+  saveNotes();
+  openNote(note.id);
+}
+function deleteNote(id){
+  if(!confirm('确定删除这篇笔记？')) return;
+  notes = notes.filter(n => n.id !== id);
+  saveNotes();
+  renderList();
+  toast('已删除');
+}
+function openNote(id){
+  currentNoteId = id;
+  document.getElementById('listView').classList.add('hidden');
+  document.getElementById('editorView').classList.remove('hidden');
+  renderEditor();
+}
+function saveAndBack(){
+  saveCurrent();
+  currentNoteId = null;
+  document.getElementById('editorView').classList.add('hidden');
+  document.getElementById('listView').classList.remove('hidden');
+  renderList();
+}
+
+// ===== Editor =====
+function getNote(){ return notes.find(n => n.id === currentNoteId); }
+
+function saveCurrent(){
+  const note = getNote(); if(!note) return;
+  note.updatedAt = Date.now();
+  // Read all textareas
+  document.querySelectorAll('.page-card').forEach(card => {
+    const pid = card.dataset.pageId;
+    const page = note.pages.find(p => p.id === pid);
+    if(!page) return;
+    if(page.type === 'cover'){
+      const ta = card.querySelector('.cover-title');
+      if(ta){ page.text = ta.value; note.title = ta.value; }
+    } else if(page.type === 'end'){
+      const sig = card.querySelector('.end-sig');
+      const enote = card.querySelector('.end-note');
+      if(sig) note.signature = sig.value;
+      if(enote) note.endNote = enote.value;
+    } else {
+      const ta = card.querySelector('textarea');
+      if(ta) page.text = ta.value;
+    }
+  });
+  saveNotes();
+}
+
+function renderEditor(){
+  const note = getNote(); if(!note) return;
+  document.getElementById('edTitle').textContent = note.title || '新笔记';
+  const body = document.getElementById('edBody');
+  body.innerHTML = note.pages.map((p, idx) => renderPageCard(p, idx, note)).join('');
+  // Auto-focus title if new
+  if(!note.title){
+    const ta = body.querySelector('.cover-title');
+    if(ta) setTimeout(() => ta.focus(), 300);
+  }
+}
+
+function renderPageCard(page, idx, note){
+  const bgStyle = page.bgUrl ? `background-image:url('${page.bgUrl}')` : 'background:#2a1520';
+  const isFirst = idx === 0;
+  const isLast = idx === note.pages.length - 1;
+  const canDelete = page.type !== 'cover' && page.type !== 'end';
+  const canMove = canDelete;
+
+  let label = '';
+  if(page.type === 'cover') label = '封面';
+  else if(page.type === 'end') label = '尾页';
+  else if(page.type === 'A') label = '高光大字';
+  else if(page.type === 'B') label = '整篇旁白';
+  else if(page.type === 'C') label = '底部旁白';
+
+  let actions = `<button onclick="changeBg('${page.id}')" title="换背景">🖼</button>`;
+  if(canMove && idx > 1) actions += `<button onclick="movePage('${page.id}',-1)" title="上移">↑</button>`;
+  if(canMove && idx < note.pages.length - 2) actions += `<button onclick="movePage('${page.id}',1)" title="下移">↓</button>`;
+  if(canDelete) actions += `<button onclick="removePage('${page.id}')" title="删除">×</button>`;
+  if(canDelete) actions += `<button onclick="changeType('${page.id}')" title="切换类型">⇄</button>`;
+
+  const align = page.align || 'left';
+  const alignStyle = `text-align:${align}`;
+  const alignBtns = (page.type !== 'cover' && page.type !== 'end') ?
+    `<div class="pc-align">
+      <button onclick="setAlign('${page.id}','left')" class="${align==='left'?'active':''}" title="居左">≡</button>
+      <button onclick="setAlign('${page.id}','center')" class="${align==='center'?'active':''}" title="居中">☰</button>
+      <button onclick="setAlign('${page.id}','right')" class="${align==='right'?'active':''}" title="居右">⫞</button>
+    </div>` : '';
+
+  let content = '';
+  if(page.type === 'cover'){
+    content = `<textarea class="cover-title" placeholder="输入标题..." oninput="onTitleInput(this)">${esc(page.text||'')}</textarea>`;
+  } else if(page.type === 'end'){
+    content = `
+      <div class="orn" style="position:relative;z-index:2">FIN</div>
+      <input class="end-sig" placeholder="署名" value="${esc(note.signature||'')}"/>
+      <div class="end-date">${fmtDate(note.createdAt)}</div>
+      <textarea class="end-note" placeholder="写几句尾注..." rows="3">${esc(note.endNote||'')}</textarea>
+    `;
+  } else if(page.type === 'A'){
+    content = `<textarea placeholder="写下高光时刻..." style="${alignStyle}">${esc(page.text||'')}</textarea>`;
+  } else if(page.type === 'B'){
+    content = `<textarea placeholder="写下长篇旁白..." style="${alignStyle}">${esc(page.text||'')}</textarea>`;
+  } else if(page.type === 'C'){
+    content = `<div style="flex:1"></div><div class="panel-area"><textarea placeholder="写下底部旁白..." style="${alignStyle}">${esc(page.text||'')}</textarea></div>`;
+  }
+
+  const typeClass = page.type === 'cover' ? 'page-cover' :
+                    page.type === 'end' ? 'page-end' :
+                    `page-type${page.type}`;
+
+  return `<div class="page-card ${typeClass}" data-page-id="${page.id}">
+    <div class="pc-bg" style="${bgStyle}"></div>
+    <div class="pc-overlay"></div>
+    <div class="pc-label">${label} · ${idx+1}/${note.pages.length}</div>
+    <div class="pc-actions">${actions}</div>
+    ${alignBtns}
+    <div class="pc-content">${content}</div>
+    <input type="file" class="bg-input" accept="image/*" data-for="${page.id}" onchange="onBgSelected(this)"/>
+  </div>`;
+}
+
+function onTitleInput(el){
+  const note = getNote(); if(!note) return;
+  note.title = el.value;
+  document.getElementById('edTitle').textContent = el.value || '新笔记';
+}
+
+// ===== Page Operations =====
+function addPage(){
+  showTypePicker(type => {
+    saveCurrent();
+    const note = getNote(); if(!note) return;
+    const newPage = { id: genId(), type: type, text: '', bgUrl: 'cover.png' };
+    note.pages.splice(note.pages.length - 1, 0, newPage);
+    saveNotes();
+    renderEditor();
+    // Scroll to new page
+    setTimeout(() => {
+      const cards = document.querySelectorAll('.page-card');
+      const target = cards[cards.length - 2];
+      if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 100);
+  });
+}
+
+function removePage(pageId){
+  if(!confirm('删除此页？')) return;
+  saveCurrent();
+  const note = getNote(); if(!note) return;
+  note.pages = note.pages.filter(p => p.id !== pageId);
+  saveNotes();
+  renderEditor();
+}
+
+function movePage(pageId, dir){
+  saveCurrent();
+  const note = getNote(); if(!note) return;
+  const idx = note.pages.findIndex(p => p.id === pageId);
+  if(idx < 0) return;
+  const newIdx = idx + dir;
+  if(newIdx < 1 || newIdx >= note.pages.length - 1) return;
+  [note.pages[idx], note.pages[newIdx]] = [note.pages[newIdx], note.pages[idx]];
+  saveNotes();
+  renderEditor();
+}
+
+function changeType(pageId){
+  const note = getNote(); if(!note) return;
+  const page = note.pages.find(p => p.id === pageId);
+  if(!page || page.type === 'cover' || page.type === 'end') return;
+  showTypePicker(type => {
+    saveCurrent();
+    const pg = note.pages.find(p => p.id === pageId);
+    if(pg){ pg.type = type; saveNotes(); renderEditor(); }
+  });
+}
+
+function changeBg(pageId){
+  const input = document.querySelector(`.bg-input[data-for="${pageId}"]`);
+  if(input) input.click();
+}
+
+function onBgSelected(input){
+  const file = input.files[0]; if(!file) return;
+  const pageId = input.dataset.for;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    saveCurrent();
+    const note = getNote(); if(!note) return;
+    const page = note.pages.find(p => p.id === pageId);
+    if(page){
+      page.bgUrl = e.target.result;
+      saveNotes();
+      renderEditor();
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function setAlign(pageId, align){
+  saveCurrent();
+  const note = getNote(); if(!note) return;
+  const page = note.pages.find(p => p.id === pageId);
+  if(page){ page.align = align; saveNotes(); renderEditor(); }
+}
+
+// ===== Type Picker =====
+function showTypePicker(callback){
+  const overlay = document.createElement('div');
+  overlay.className = 'type-picker';
+  overlay.innerHTML = `<div class="tp-box">
+    <h3>选择页面类型</h3>
+    <button class="tp-option" data-type="A">
+      <div class="tp-icon">✦</div>
+      <div><div class="tp-label">高光大字</div><div class="tp-desc">开场白风格，大字居中</div></div>
+    </button>
+    <button class="tp-option" data-type="B">
+      <div class="tp-icon">◈</div>
+      <div><div class="tp-label">整篇旁白</div><div class="tp-desc">毛玻璃全屏，长篇叙述</div></div>
+    </button>
+    <button class="tp-option" data-type="C">
+      <div class="tp-icon">▽</div>
+      <div><div class="tp-label">底部旁白</div><div class="tp-desc">底部对话框风格</div></div>
+    </button>
+    <button class="btn ghost sm" style="width:100%;margin-top:6px" onclick="this.closest('.type-picker').remove()">取消</button>
+  </div>`;
+  overlay.querySelectorAll('.tp-option').forEach(btn => {
+    btn.onclick = () => { overlay.remove(); callback(btn.dataset.type); };
+  });
+  overlay.onclick = e => { if(e.target === overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+
+// ===== Export =====
+async function exportNote(){
+  saveCurrent();
+  const note = getNote(); if(!note) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'export-overlay';
+  overlay.innerHTML = '<div class="spinner"></div><p>正在生成图片...</p>';
+  document.body.appendChild(overlay);
+
+  try{
+    const cards = document.querySelectorAll('.page-card');
+    let count = 0;
+    for(const card of cards){
+      count++;
+      overlay.querySelector('p').textContent = `正在生成第 ${count}/${cards.length} 页...`;
+
+      const canvas = await renderCardToCanvas(card);
+      const link = document.createElement('a');
+      link.download = `${note.title||'笔记'}_${String(count).padStart(2,'0')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      await new Promise(r => setTimeout(r, 300));
+    }
+    toast('导出完成 ♡');
+  } catch(e){
+    console.error(e);
+    toast('导出失败: ' + e.message);
+  } finally{
+    overlay.remove();
+  }
+}
+
+async function renderCardToCanvas(card){
+  const canvas = document.createElement('canvas');
+  const w = 1080, h = 1920;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  // Draw background
+  const bgEl = card.querySelector('.pc-bg');
+  const bgImg = bgEl ? bgEl.style.backgroundImage : '';
+  const bgUrl = bgImg.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
+
+  if(bgUrl && bgUrl !== 'undefined'){
+    try{
+      const img = await loadImage(bgUrl);
+      drawCover(ctx, img, w, h);
+    } catch(e){
+      ctx.fillStyle = '#2a1520';
+      ctx.fillRect(0, 0, w, h);
+    }
+  } else {
+    ctx.fillStyle = '#2a1520';
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Draw overlay based on type
+  const isCover = card.classList.contains('page-cover');
+  const isEnd = card.classList.contains('page-end');
+  const isA = card.classList.contains('page-typeA');
+  const isB = card.classList.contains('page-typeB');
+  const isC = card.classList.contains('page-typeC');
+
+  // Get alignment from the page data
+  const pid = card.dataset.pageId;
+  const note = getNote();
+  const pageData = note ? note.pages.find(p => p.id === pid) : null;
+  const textAlign = (pageData && pageData.align) || 'left';
+
+  if(isCover){
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.6, 'rgba(0,0,0,0.1)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.4)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    // Title
+    const ta = card.querySelector('.cover-title');
+    const title = ta ? ta.value : '';
+    if(title){
+      ctx.font = '700 72px Baskerville, "Songti SC", "Times New Roman", Georgia, serif';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
+      ctx.shadowBlur = 20;
+      wrapText(ctx, title, 80, h - 120, w - 160, 90);
+      ctx.shadowBlur = 0;
+    }
+  } else if(isA){
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(253,240,244,0.72)');
+    grad.addColorStop(1, 'rgba(248,220,226,0.78)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    const ta = card.querySelector('textarea');
+    const text = ta ? ta.value : '';
+    if(text){
+      ctx.font = '600 54px Baskerville, "Songti SC", "Times New Roman", Georgia, serif';
+      ctx.fillStyle = '#8f2f3d';
+      ctx.textAlign = textAlign;
+      ctx.shadowColor = 'rgba(255,255,255,0.9)';
+      ctx.shadowBlur = 8;
+      const axA = textAlign==='center' ? w/2 : textAlign==='right' ? w-100 : 100;
+      wrapText(ctx, text, axA, 300, w - 200, 110);
+      ctx.shadowBlur = 0;
+    }
+  } else if(isB){
+    ctx.fillStyle = 'rgba(10,4,8,0.65)';
+    ctx.fillRect(0, 0, w, h);
+    const ta = card.querySelector('textarea');
+    const text = ta ? ta.value : '';
+    if(text){
+      ctx.font = '36px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = 'rgba(245,230,235,0.85)';
+      ctx.textAlign = textAlign;
+      const axB = textAlign==='center' ? w/2 : textAlign==='right' ? w-80 : 80;
+      wrapText(ctx, text, axB, 240, w - 160, 72);
+    }
+  } else if(isC){
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(0.55, 'rgba(20,8,14,0.15)');
+    grad.addColorStop(1, 'rgba(20,8,14,0.55)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    // Panel area
+    const panelY = h * 0.6;
+    ctx.fillStyle = 'rgba(20,8,14,0.4)';
+    ctx.fillRect(0, panelY, w, h - panelY);
+    ctx.strokeStyle = 'rgba(210,120,140,0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, panelY); ctx.lineTo(w, panelY); ctx.stroke();
+    const ta = card.querySelector('textarea');
+    const text = ta ? ta.value : '';
+    if(text){
+      ctx.font = '40px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = '#f0e0e4';
+      ctx.textAlign = textAlign;
+      const axC = textAlign==='center' ? w/2 : textAlign==='right' ? w-80 : 80;
+      wrapText(ctx, text, axC, panelY + 80, w - 160, 76);
+    }
+  } else if(isEnd){
+    ctx.fillStyle = 'rgba(253,240,244,0.6)';
+    ctx.fillRect(0, 0, w, h);
+    // FIN ornament
+    ctx.font = '32px -apple-system, sans-serif';
+    ctx.fillStyle = '#d4879a';
+    ctx.textAlign = 'center';
+    ctx.fillText('──── FIN ────', w/2, h/2 - 120);
+    // Signature
+    const sigEl = card.querySelector('.end-sig');
+    const sig = sigEl ? sigEl.value : '';
+    if(sig){
+      ctx.font = '600 48px Baskerville, "Songti SC", serif';
+      ctx.fillStyle = '#c25670';
+      ctx.fillText(sig, w/2, h/2);
+    }
+    // Date
+    const note = getNote();
+    ctx.font = '28px -apple-system, sans-serif';
+    ctx.fillStyle = '#967080';
+    ctx.fillText(fmtDate(note ? note.createdAt : Date.now()), w/2, h/2 + 60);
+    // End note
+    const enEl = card.querySelector('.end-note');
+    const en = enEl ? enEl.value : '';
+    if(en){
+      ctx.font = '28px -apple-system, "PingFang SC", sans-serif';
+      ctx.fillStyle = '#967080';
+      wrapText(ctx, en, 140, h/2 + 140, w - 280, 50);
+    }
+  }
+
+  return canvas;
+}
+
+function loadImage(url){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function drawCover(ctx, img, cw, ch){
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const scale = Math.max(cw/iw, ch/ih);
+  const sw = cw/scale, sh = ch/scale;
+  const sx = (iw - sw)/2, sy = 0;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH){
+  const lines = text.split('\n');
+  let curY = y;
+  for(const line of lines){
+    let cur = '';
+    for(const ch of line){
+      const test = cur + ch;
+      if(ctx.measureText(test).width > maxW && cur){
+        ctx.fillText(cur, x, curY);
+        cur = ch;
+        curY += lineH;
+      } else {
+        cur = test;
+      }
+    }
+    if(cur) ctx.fillText(cur, x, curY);
+    curY += lineH;
+  }
+}
+
+// ===== Init =====
+loadNotes();
+renderList();
+
+// Auto-save on visibility change
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden && currentNoteId) saveCurrent();
+});
+</script>
+</body>
+</html>
