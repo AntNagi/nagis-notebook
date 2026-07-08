@@ -189,21 +189,11 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-se
 /* BG picker */
 .bg-input{display:none}
 
-/* Screenshot mode */
-.screenshot-mode .pc-actions,
-.screenshot-mode .pc-label,
-.screenshot-mode .pc-align,
-.screenshot-mode .bg-input,
-.screenshot-mode .ed-header,
-.screenshot-mode .ed-footer{display:none!important}
-.screenshot-mode .ed-body{top:0;bottom:0}
-.screenshot-mode .page-card{margin:0;border-radius:0;max-height:none;aspect-ratio:auto;height:100dvh}
-.ss-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999;
-  padding:16px 28px;border-radius:20px;border:none;text-align:center;
-  font-size:13px;line-height:1.8;color:#fff;pointer-events:none;
-  background:rgba(90,48,64,.75);backdrop-filter:blur(10px);
-  box-shadow:0 4px 16px rgba(0,0,0,.3);animation:ssHintFade 2.5s ease forwards}
-@keyframes ssHintFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+/* Hide UI mode */
+.hide-ui .pc-actions,
+.hide-ui .pc-label,
+.hide-ui .pc-align,
+.hide-ui .bg-input{display:none!important}
 
 /* Scrollbar hide */
 *::-webkit-scrollbar{width:0;height:0;display:none}
@@ -231,8 +221,8 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-se
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
       </div>
       <div class="ed-title" id="edTitle">新笔记</div>
-      <div class="iconbtn" onclick="enterScreenshot()" title="截图模式">
-        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4" fill="none"/></svg>
+      <div class="iconbtn" onclick="toggleUI()" id="toggleUIBtn" title="隐藏/显示图标">
+        <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3" fill="none"/></svg>
       </div>
     </div>
     <div class="ed-body" id="edBody"></div>
@@ -549,65 +539,9 @@ function showTypePicker(callback){
   document.body.appendChild(overlay);
 }
 
-// ===== Screenshot Mode =====
-let ssPageIndex = 0;
-function enterScreenshot(){
-  saveCurrent();
-  const note = getNote(); if(!note || !note.pages.length) return;
-  ssPageIndex = 0;
-  document.getElementById('app').classList.add('screenshot-mode');
-  showSSPage();
-}
-function showSSPage(){
-  const note = getNote(); if(!note) return;
-  const body = document.getElementById('edBody');
-  const page = note.pages[ssPageIndex];
-  body.innerHTML = renderPageCard(page, ssPageIndex, note);
-  // Show hint on first enter
-  document.querySelectorAll('.ss-hint').forEach(e => e.remove());
-  if(ssPageIndex === 0){
-    const hint = document.createElement('div');
-    hint.className = 'ss-hint';
-    hint.textContent = '← 右滑上一页 · 左滑下一页 →\n双击退出截图模式';
-    document.body.appendChild(hint);
-    setTimeout(() => hint.remove(), 2600);
-  }
-  // Setup swipe gestures
-  setupSSGestures();
-}
-let ssStartX = 0, ssStartY = 0;
-function setupSSGestures(){
-  const body = document.getElementById('edBody');
-  body.ontouchstart = e => { ssStartX = e.touches[0].clientX; ssStartY = e.touches[0].clientY; };
-  body.ontouchend = e => {
-    const dx = e.changedTouches[0].clientX - ssStartX;
-    const dy = e.changedTouches[0].clientY - ssStartY;
-    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)){
-      if(dx < 0) ssNav(1);
-      else ssNav(-1);
-    }
-  };
-  // Double tap to exit
-  let lastTap = 0;
-  body.onclick = e => {
-    const now = Date.now();
-    if(now - lastTap < 300){ exitScreenshot(); }
-    lastTap = now;
-  };
-}
-function ssNav(dir){
-  const note = getNote(); if(!note) return;
-  const next = ssPageIndex + dir;
-  if(next < 0 || next >= note.pages.length) return;
-  ssPageIndex = next;
-  showSSPage();
-}
-function exitScreenshot(){
-  document.getElementById('app').classList.remove('screenshot-mode');
-  document.querySelectorAll('.ss-hint').forEach(e => e.remove());
-  const body = document.getElementById('edBody');
-  body.ontouchstart = null; body.ontouchend = null; body.onclick = null;
-  renderEditor();
+// ===== Toggle UI =====
+function toggleUI(){
+  document.getElementById('edBody').classList.toggle('hide-ui');
 }
 
 
