@@ -189,14 +189,19 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-se
 /* BG picker */
 .bg-input{display:none}
 
-/* Export loading */
-.export-overlay{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:16px;
-  background:rgba(90,48,64,.6);backdrop-filter:blur(8px);animation:fade .2s ease}
-.export-overlay .spinner{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);
-  border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.export-overlay p{color:#fff;font-size:14px;letter-spacing:.1em}
+/* Screenshot mode */
+.screenshot-mode .pc-actions,
+.screenshot-mode .pc-label,
+.screenshot-mode .pc-align,
+.screenshot-mode .bg-input,
+.screenshot-mode .ed-header,
+.screenshot-mode .ed-footer{display:none!important}
+.screenshot-mode .ed-body{top:0;bottom:0}
+.screenshot-mode .page-card{margin:0;border-radius:0;max-height:none;aspect-ratio:auto;height:100dvh}
+.ss-exit{position:fixed;bottom:24px;right:24px;z-index:999;padding:10px 22px;border-radius:24px;border:none;
+  font-size:14px;letter-spacing:.08em;color:#fff;cursor:pointer;
+  background:rgba(90,48,64,.7);backdrop-filter:blur(10px);
+  box-shadow:0 4px 16px rgba(0,0,0,.3);animation:fade .3s ease}
 
 /* Scrollbar hide */
 *::-webkit-scrollbar{width:0;height:0;display:none}
@@ -224,8 +229,8 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-se
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
       </div>
       <div class="ed-title" id="edTitle">新笔记</div>
-      <div class="iconbtn" onclick="exportNote()" title="导出图片">
-        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      <div class="iconbtn" onclick="enterScreenshot()" title="截图模式">
+        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4" fill="none"/></svg>
       </div>
     </div>
     <div class="ed-body" id="edBody"></div>
@@ -542,91 +547,48 @@ function showTypePicker(callback){
   document.body.appendChild(overlay);
 }
 
-// ===== Export =====
-async function exportNote(){
+// ===== Screenshot Mode =====
+let ssPageIndex = 0;
+function enterScreenshot(){
   saveCurrent();
+  const note = getNote(); if(!note || !note.pages.length) return;
+  ssPageIndex = 0;
+  document.getElementById('app').classList.add('screenshot-mode');
+  showSSPage();
+}
+function showSSPage(){
   const note = getNote(); if(!note) return;
-
-  const overlay = document.createElement('div');
-  overlay.className = 'export-overlay';
-  overlay.innerHTML = '<div class="spinner"></div><p>正在加载导出模块...</p>';
-  document.body.appendChild(overlay);
-
-  try{
-    // Load html2canvas if not loaded
-    if(!window.html2canvas){
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-        s.onload = resolve; s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-
-    const cards = document.querySelectorAll('.page-card');
-    let count = 0;
-    for(const card of cards){
-      count++;
-      overlay.querySelector('p').textContent = `正在生成第 ${count}/${cards.length} 页...`;
-
-      // Hide action buttons and labels for export
-      const actions = card.querySelector('.pc-actions');
-      const label = card.querySelector('.pc-label');
-      const alignBtns = card.querySelector('.pc-align');
-      const bgInput = card.querySelector('.bg-input');
-      if(actions) actions.style.display = 'none';
-      if(label) label.style.display = 'none';
-      if(alignBtns) alignBtns.style.display = 'none';
-      if(bgInput) bgInput.style.display = 'none';
-
-      // Create a full-size clone for high-res export
-      const clone = card.cloneNode(true);
-      clone.style.cssText = `position:fixed;left:-9999px;top:0;width:1080px;height:1920px;margin:0;border-radius:0;max-height:none;z-index:-1;`;
-      // Make textareas and inputs display as div text
-      clone.querySelectorAll('textarea, input').forEach(el => {
-        const div = document.createElement('div');
-        div.style.cssText = window.getComputedStyle(el).cssText;
-        div.style.height = 'auto';
-        div.style.minHeight = el.style.minHeight || '0';
-        div.style.overflow = 'visible';
-        div.style.whiteSpace = 'pre-wrap';
-        div.style.wordBreak = 'break-word';
-        div.textContent = el.value;
-        el.parentNode.replaceChild(div, el);
-      });
-      // Remove hidden elements in clone
-      clone.querySelectorAll('.pc-actions, .pc-label, .pc-align, .bg-input').forEach(el => el.remove());
-      document.body.appendChild(clone);
-
-      const canvas = await html2canvas(clone, {
-        width: 1080, height: 1920, scale: 1,
-        useCORS: true, allowTaint: true,
-        backgroundColor: null,
-        logging: false
-      });
-
-      clone.remove();
-
-      // Restore action buttons
-      if(actions) actions.style.display = '';
-      if(label) label.style.display = '';
-      if(alignBtns) alignBtns.style.display = '';
-      if(bgInput) bgInput.style.display = '';
-
-      const link = document.createElement('a');
-      link.download = `${note.title||'笔记'}_${String(count).padStart(2,'0')}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-
-      await new Promise(r => setTimeout(r, 500));
-    }
-    toast('导出完成 ♡');
-  } catch(e){
-    console.error(e);
-    toast('导出失败: ' + e.message);
-  } finally{
-    overlay.remove();
+  const body = document.getElementById('edBody');
+  const page = note.pages[ssPageIndex];
+  body.innerHTML = renderPageCard(page, ssPageIndex, note);
+  // Remove existing exit btn
+  document.querySelectorAll('.ss-exit').forEach(e => e.remove());
+  // Add navigation
+  const nav = document.createElement('div');
+  nav.className = 'ss-exit';
+  const total = note.pages.length;
+  const prevDisabled = ssPageIndex <= 0 ? 'opacity:.4;pointer-events:none;' : '';
+  const nextLabel = ssPageIndex >= total - 1 ? '退出' : '下一页 ›';
+  nav.innerHTML = `<span style="cursor:pointer;${prevDisabled}" onclick="event.stopPropagation();ssNav(-1)">‹ 上一页</span>` +
+    `<span style="margin:0 16px;font-size:12px;opacity:.7">${ssPageIndex+1}/${total}</span>` +
+    `<span style="cursor:pointer" onclick="event.stopPropagation();ssNav(1)">${nextLabel}</span>`;
+  document.body.appendChild(nav);
+}
+function ssNav(dir){
+  const note = getNote(); if(!note) return;
+  const next = ssPageIndex + dir;
+  if(next < 0) return;
+  if(next >= note.pages.length){
+    exitScreenshot();
+    return;
   }
+  ssPageIndex = next;
+  showSSPage();
+}
+function exitScreenshot(){
+  document.getElementById('app').classList.remove('screenshot-mode');
+  document.querySelectorAll('.ss-exit').forEach(e => e.remove());
+  renderEditor();
 }
 
 
