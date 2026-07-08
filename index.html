@@ -549,23 +549,76 @@ async function exportNote(){
 
   const overlay = document.createElement('div');
   overlay.className = 'export-overlay';
-  overlay.innerHTML = '<div class="spinner"></div><p>正在生成图片...</p>';
+  overlay.innerHTML = '<div class="spinner"></div><p>正在加载导出模块...</p>';
   document.body.appendChild(overlay);
 
   try{
+    // Load html2canvas if not loaded
+    if(!window.html2canvas){
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
     const cards = document.querySelectorAll('.page-card');
     let count = 0;
     for(const card of cards){
       count++;
       overlay.querySelector('p').textContent = `正在生成第 ${count}/${cards.length} 页...`;
 
-      const canvas = await renderCardToCanvas(card);
+      // Hide action buttons and labels for export
+      const actions = card.querySelector('.pc-actions');
+      const label = card.querySelector('.pc-label');
+      const alignBtns = card.querySelector('.pc-align');
+      const bgInput = card.querySelector('.bg-input');
+      if(actions) actions.style.display = 'none';
+      if(label) label.style.display = 'none';
+      if(alignBtns) alignBtns.style.display = 'none';
+      if(bgInput) bgInput.style.display = 'none';
+
+      // Create a full-size clone for high-res export
+      const clone = card.cloneNode(true);
+      clone.style.cssText = `position:fixed;left:-9999px;top:0;width:1080px;height:1920px;margin:0;border-radius:0;max-height:none;z-index:-1;`;
+      // Make textareas and inputs display as div text
+      clone.querySelectorAll('textarea, input').forEach(el => {
+        const div = document.createElement('div');
+        div.style.cssText = window.getComputedStyle(el).cssText;
+        div.style.height = 'auto';
+        div.style.minHeight = el.style.minHeight || '0';
+        div.style.overflow = 'visible';
+        div.style.whiteSpace = 'pre-wrap';
+        div.style.wordBreak = 'break-word';
+        div.textContent = el.value;
+        el.parentNode.replaceChild(div, el);
+      });
+      // Remove hidden elements in clone
+      clone.querySelectorAll('.pc-actions, .pc-label, .pc-align, .bg-input').forEach(el => el.remove());
+      document.body.appendChild(clone);
+
+      const canvas = await html2canvas(clone, {
+        width: 1080, height: 1920, scale: 1,
+        useCORS: true, allowTaint: true,
+        backgroundColor: null,
+        logging: false
+      });
+
+      clone.remove();
+
+      // Restore action buttons
+      if(actions) actions.style.display = '';
+      if(label) label.style.display = '';
+      if(alignBtns) alignBtns.style.display = '';
+      if(bgInput) bgInput.style.display = '';
+
       const link = document.createElement('a');
       link.download = `${note.title||'笔记'}_${String(count).padStart(2,'0')}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
 
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 500));
     }
     toast('导出完成 ♡');
   } catch(e){
@@ -576,203 +629,6 @@ async function exportNote(){
   }
 }
 
-async function renderCardToCanvas(card){
-  const canvas = document.createElement('canvas');
-  const w = 1080, h = 1920;
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext('2d');
-  const pad = 100;
-  const contentW = w - pad * 2;
-  const serifFont = 'Baskerville, "Songti SC", "SimSun", "Times New Roman", Georgia, serif';
-  const sansFont = '"PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif';
-
-  // Draw background
-  const bgEl = card.querySelector('.pc-bg');
-  const bgImg = bgEl ? bgEl.style.backgroundImage : '';
-  const bgUrl = bgImg.replace(/url\(['"]?/, '').replace(/['"]?\)/, '');
-  if(bgUrl && bgUrl !== 'undefined'){
-    try{
-      const img = await loadImage(bgUrl);
-      drawCover(ctx, img, w, h);
-    } catch(e){ ctx.fillStyle = '#2a1520'; ctx.fillRect(0, 0, w, h); }
-  } else { ctx.fillStyle = '#2a1520'; ctx.fillRect(0, 0, w, h); }
-
-  const isCover = card.classList.contains('page-cover');
-  const isEnd = card.classList.contains('page-end');
-  const isA = card.classList.contains('page-typeA');
-  const isB = card.classList.contains('page-typeB');
-  const isC = card.classList.contains('page-typeC');
-
-  const pid = card.dataset.pageId;
-  const note = getNote();
-  const pageData = note ? note.pages.find(p => p.id === pid) : null;
-  const align = (pageData && pageData.align) || 'left';
-
-  // Helper: reset ctx state before each text block
-  function resetCtx(){ ctx.textAlign = 'left'; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent'; }
-
-  if(isCover){
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'transparent');
-    grad.addColorStop(0.5, 'rgba(0,0,0,0.08)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.45)');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
-    const ta = card.querySelector('.cover-title');
-    const title = ta ? ta.value : '';
-    if(title){
-      resetCtx();
-      ctx.font = `700 68px ${serifFont}`;
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'left';
-      ctx.shadowColor = 'rgba(194,86,112,0.55)'; ctx.shadowBlur = 16;
-      // Calculate how many lines, then position from bottom
-      const lines = getWrappedLines(ctx, title, contentW);
-      const lineH = 88;
-      const startY = h - 100 - (lines.length - 1) * lineH;
-      lines.forEach((ln, i) => ctx.fillText(ln, pad, startY + i * lineH));
-      resetCtx();
-    }
-  } else if(isA){
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'rgba(253,240,244,0.75)');
-    grad.addColorStop(1, 'rgba(248,220,226,0.8)');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
-    const ta = card.querySelector('textarea');
-    const text = ta ? ta.value : '';
-    if(text){
-      resetCtx();
-      ctx.font = `600 52px ${serifFont}`;
-      ctx.fillStyle = '#8f2f3d';
-      ctx.shadowColor = 'rgba(255,255,255,0.9)'; ctx.shadowBlur = 8;
-      const lines = getWrappedLines(ctx, text, contentW);
-      const lineH = 104;
-      const totalH = lines.length * lineH;
-      const startY = (h - totalH) / 2 + lineH * 0.7;
-      ctx.textAlign = align;
-      const ax = align === 'center' ? w/2 : align === 'right' ? w - pad : pad;
-      lines.forEach((ln, i) => ctx.fillText(ln, ax, startY + i * lineH));
-      resetCtx();
-    }
-  } else if(isB){
-    ctx.fillStyle = 'rgba(10,4,8,0.65)'; ctx.fillRect(0, 0, w, h);
-    const ta = card.querySelector('textarea');
-    const text = ta ? ta.value : '';
-    if(text){
-      resetCtx();
-      ctx.font = `34px ${sansFont}`;
-      ctx.fillStyle = 'rgba(245,230,235,0.88)';
-      const lines = getWrappedLines(ctx, text, contentW);
-      const lineH = 68;
-      const totalH = lines.length * lineH;
-      const startY = Math.max(pad, (h - totalH) / 2 + lineH * 0.7);
-      ctx.textAlign = align;
-      const ax = align === 'center' ? w/2 : align === 'right' ? w - pad : pad;
-      lines.forEach((ln, i) => ctx.fillText(ln, ax, startY + i * lineH));
-      resetCtx();
-    }
-  } else if(isC){
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, 'transparent');
-    grad.addColorStop(0.5, 'rgba(20,8,14,0.12)');
-    grad.addColorStop(1, 'rgba(20,8,14,0.55)');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
-    const panelY = h * 0.6;
-    ctx.fillStyle = 'rgba(20,8,14,0.4)';
-    ctx.fillRect(0, panelY, w, h - panelY);
-    ctx.strokeStyle = 'rgba(210,120,140,0.3)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, panelY); ctx.lineTo(w, panelY); ctx.stroke();
-    const ta = card.querySelector('textarea');
-    const text = ta ? ta.value : '';
-    if(text){
-      resetCtx();
-      ctx.font = `38px ${sansFont}`;
-      ctx.fillStyle = '#f0e0e4';
-      const lines = getWrappedLines(ctx, text, contentW);
-      const lineH = 74;
-      ctx.textAlign = align;
-      const ax = align === 'center' ? w/2 : align === 'right' ? w - pad : pad;
-      lines.forEach((ln, i) => ctx.fillText(ln, ax, panelY + 80 + i * lineH));
-      resetCtx();
-    }
-  } else if(isEnd){
-    ctx.fillStyle = 'rgba(253,240,244,0.65)'; ctx.fillRect(0, 0, w, h);
-    resetCtx();
-    // FIN ornament
-    ctx.font = `34px ${sansFont}`;
-    ctx.fillStyle = '#d4879a';
-    ctx.textAlign = 'center';
-    ctx.fillText('──── FIN ────', w/2, h/2 - 140);
-    // Signature
-    const sigEl = card.querySelector('.end-sig');
-    const sig = sigEl ? sigEl.value : '';
-    if(sig){
-      ctx.font = `600 52px ${serifFont}`;
-      ctx.fillStyle = '#c25670';
-      ctx.textAlign = 'center';
-      ctx.fillText(sig, w/2, h/2 - 20);
-    }
-    // Date
-    ctx.font = `28px ${sansFont}`;
-    ctx.fillStyle = '#967080';
-    ctx.textAlign = 'center';
-    ctx.fillText(fmtDate(note ? note.createdAt : Date.now()), w/2, h/2 + 40);
-    // End note
-    const enEl = card.querySelector('.end-note');
-    const en = enEl ? enEl.value : '';
-    if(en){
-      ctx.font = `28px ${sansFont}`;
-      ctx.fillStyle = '#967080';
-      ctx.textAlign = 'center';
-      const lines = getWrappedLines(ctx, en, contentW);
-      const lineH = 50;
-      lines.forEach((ln, i) => ctx.fillText(ln, w/2, h/2 + 120 + i * lineH));
-    }
-    resetCtx();
-  }
-
-  return canvas;
-}
-
-function loadImage(url){
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-function drawCover(ctx, img, cw, ch){
-  const iw = img.naturalWidth, ih = img.naturalHeight;
-  const scale = Math.max(cw/iw, ch/ih);
-  const sw = cw/scale, sh = ch/scale;
-  const sx = (iw - sw)/2, sy = 0;
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
-}
-
-function getWrappedLines(ctx, text, maxW){
-  const result = [];
-  const paragraphs = text.split('\n');
-  for(const para of paragraphs){
-    if(!para){ result.push(''); continue; }
-    let cur = '';
-    for(const ch of para){
-      const test = cur + ch;
-      if(ctx.measureText(test).width > maxW && cur){
-        result.push(cur);
-        cur = ch;
-      } else { cur = test; }
-    }
-    if(cur) result.push(cur);
-  }
-  return result;
-}
-
-function wrapText(ctx, text, x, y, maxW, lineH){
-  const lines = getWrappedLines(ctx, text, maxW);
-  lines.forEach((ln, i) => ctx.fillText(ln, x, y + i * lineH));
-}
 
 // ===== Init =====
 loadNotes();
